@@ -62,4 +62,5 @@ def generate_response(user_input):
     )
     return response.choices[0].message.content
 
-collect_user_input()
+if __name__ == "__main__":
+    collect_user_input()
