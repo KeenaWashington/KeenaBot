@@ -136,7 +136,7 @@ def judge_response(
 
     try:
         resp = client.chat.completions.create(
-            model="gpt-5",
+            model=model,
             reasoning_effort="low",
             messages=[
                 {"role": "system", "content": system_prompt},

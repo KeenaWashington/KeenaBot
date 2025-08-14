@@ -19,6 +19,9 @@ def select_context(user_input: str, data: dict) -> str:
     if any(k in text for k in ["personal", "hobby", "hobbies", "favorite", "favorites", "kids", "children", "family", "color", "food", "foods"]):
         sections.append({"personal": data.get("personal", {})})
 
+    if any(k in text for k in ["kill", "suicide", "unalive", "hurt"]):
+        sections.append({"suicide": data.get("suicide", [])})
+
     if any(k in text for k in ["contact", "email", "phone", "address", "website", "linkedin"]):
         if data.get("contact"):
             sections.append({"contact": data.get("contact")})

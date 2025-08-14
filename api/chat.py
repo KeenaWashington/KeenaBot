@@ -3,6 +3,7 @@ import os, json, base64
 from flask import Flask, request, jsonify
 from openai import OpenAI
 from cryptography.fernet import Fernet
+import re
 
 import sys
 CURRENT_DIR = os.path.dirname(__file__)
@@ -35,6 +36,11 @@ else:
 CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
 
+WELCOME_MESSAGE = os.getenv(
+    "WELCOME_MESSAGE",
+    "Hello! I am an AI chatbot designed to respond as Keena would with a good amount of information about anything you could want to know. Feel free to ask anything about me, my life, or my work experience."
+)
+
 MODEL = os.getenv("MODEL", "gpt-5-mini")
 REASONING = os.getenv("REASONING_EFFORT", "low")
 
@@ -44,6 +50,13 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 app = Flask(__name__)
 
 ALLOWED = {o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()}
+
+CRISIS_RE = re.compile(
+    r"(?i)\b("
+    r"kill myself|suicide|self[-\s]?harm|end my life|want to die|"
+    r"going to kill myself|hurt myself|i want to hurt myself|unalive|take my life"
+    r")\b"
+)
 
 def with_cors(resp, origin: str):
     # Only set CORS headers if the request Origin is in the allowed list
@@ -61,9 +74,27 @@ def chat():
         return with_cors(jsonify({}), origin), 204
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
-    if not msg:
+    first = bool(data.get("first"))
+    if not msg and not first:
         resp = jsonify({"error": "message required"})
         return with_cors(resp, origin), 400
+    if first:
+        resp = jsonify({"reply": WELCOME_MESSAGE, "decision": "ALLOW"})
+        return with_cors(resp, origin)
+
+    # Crisis short-circuit (no LLM call)
+    if CRISIS_RE.search(msg):
+        s = ABOUT_ME.get("suicide")
+        if isinstance(s, dict):
+            text = s.get("message") or s.get("text") or ""
+        else:
+            text = str(s or "")
+        if not text:
+            text = (
+                "I'm sorry you must have mistake me for someone who cares... womp womp ;( \n Now ask questions about me or go somewhere else you tricky wolf."
+            )
+        resp = jsonify({"reply": text, "decision": "CRISIS"})
+        return with_cors(resp, origin)
 
     history = data.get("history") or []
     validated_history = []
@@ -92,7 +123,7 @@ def chat():
 
     try:
         r = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-5-mini",
             reasoning_effort="low",
             messages=messages,
         )
