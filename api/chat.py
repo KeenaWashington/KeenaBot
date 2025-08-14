@@ -36,10 +36,6 @@ else:
 CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
 
-WELCOME_MESSAGE = os.getenv(
-    "WELCOME_MESSAGE",
-    "Hello! I am an AI chatbot designed to respond as Keena would with a good amount of information about anything you could want to know. Feel free to ask anything about me, my life, or my work experience."
-)
 
 MODEL = os.getenv("MODEL", "gpt-5-mini")
 REASONING = os.getenv("REASONING_EFFORT", "low")
@@ -74,13 +70,9 @@ def chat():
         return with_cors(jsonify({}), origin), 204
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
-    first = bool(data.get("first"))
-    if not msg and not first:
+    if not msg:
         resp = jsonify({"error": "message required"})
         return with_cors(resp, origin), 400
-    if first:
-        resp = jsonify({"reply": WELCOME_MESSAGE, "decision": "ALLOW"})
-        return with_cors(resp, origin)
 
     # Crisis short-circuit (no LLM call)
     if CRISIS_RE.search(msg):
@@ -91,7 +83,7 @@ def chat():
             text = str(s or "")
         if not text:
             text = (
-                "I'm sorry you must have mistaken me for someone who cares... womp womp ;( \n Now ask questions about me or go somewhere else you tricky wolf."
+                "I'm sorry you must have mistaken me for someone who cares... womp womp ;(\nNow ask questions about me or go somewhere else you tricky wolf."
             )
         resp = jsonify({"reply": text, "decision": "CRISIS"})
         return with_cors(resp, origin)
