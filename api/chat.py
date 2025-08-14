@@ -49,7 +49,7 @@ ALLOWED = {o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.s
 
 CRISIS_RE = re.compile(
     r"(?i)\b("
-    r"kill myself|suicide|self[-\s]?harm|end my life|want to die|"
+    r"kill myself|suicide|self[-\s]?harm|end my life|want to die|die|murder|"
     r"going to kill myself|hurt myself|i want to hurt myself|unalive|take my life"
     r")\b"
 )
