@@ -3,7 +3,19 @@ import os, json, base64
 from flask import Flask, request, jsonify
 from openai import OpenAI
 
-from guardrails import build_guardrails, system_rules_text
+import sys
+CURRENT_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+from guardrails import system_rules_text, build_profile_terms, judge_response
 from context_selector import select_context
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
@@ -11,30 +23,78 @@ ABOUT_ME = json.loads(base64.b64decode(os.environ["ABOUT_ME_JSON_BASE64"]).decod
 
 CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
-guard = build_guardrails(CAPABILITIES, POLICY)
+
+MODEL = os.getenv("MODEL", "gpt-5-mini")
+REASONING = os.getenv("REASONING_EFFORT", "low")
+
+PROFILE_TERMS = build_profile_terms(ABOUT_ME)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 app = Flask(__name__)
 
-@app.route("/api/chat", methods=["POST"])
+ALLOWED = {o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()}
+
+def with_cors(resp, origin: str):
+    # Only set CORS headers if the request Origin is in the allowed list
+    if origin in ALLOWED:
+        resp.headers["Access-Control-Allow-Origin"] = origin
+        resp.headers["Vary"] = "Origin"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+@app.route("/api/chat", methods=["POST", "OPTIONS"])
 def chat():
+    origin = request.headers.get("Origin", "")
+    if request.method == "OPTIONS":  # CORS preflight
+        return with_cors(jsonify({}), origin), 204
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
     if not msg:
-        return jsonify({"error": "message required"}), 400
+        resp = jsonify({"error": "message required"})
+        return with_cors(resp, origin), 400
 
-    blocked, reason = guard(msg)
-    if blocked:
-        return jsonify({"reply": reason})
+    history = data.get("history") or []
+    validated_history = []
+    if isinstance(history, list):
+        for item in history[-12:]:  # cap to last 12 items
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            content = item.get("content")
+            if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
+                validated_history.append({"role": role, "content": content.strip()})
 
     system_text = system_rules_text(CAPABILITIES)
     context = select_context(msg, ABOUT_ME)
 
-    r = client.chat.completions.create(
-        model="gpt-5-mini", reasoning_effort="low",
-        messages=[
-            {"role": "system", "content": system_text},
-            {"role": "user", "content": f"BACKGROUND:\n{context}\n\nUSER:\n{msg}"}
-        ],
-    )
-    return jsonify({"reply": r.choices[0].message.content})
+    messages = [{"role": "system", "content": system_text}]
+    if validated_history:
+        messages.extend(validated_history)
+    messages.append({
+        "role": "user",
+        "content": (
+            "BACKGROUND (selected sections):\n" + context + "\n\n" +
+            "USER MESSAGE:\n" + msg
+        ),
+    })
+
+    try:
+        r = client.chat.completions.create(
+            model="gpt-5",
+            reasoning_effort="low",
+            messages=messages,
+        )
+        draft = r.choices[0].message.content
+    except Exception as e:
+        resp = jsonify({"error": str(e)})
+        return with_cors(resp, origin), 500
+
+    decision, reason, suggest = judge_response(client, msg, draft, POLICY, CAPABILITIES, PROFILE_TERMS)
+    if decision in {"ALLOW", "ERROR"}:
+        final = draft
+    else:
+        final = suggest or "I can’t answer that based on my profile."
+
+    resp = jsonify({"reply": final, "decision": decision})
+    return with_cors(resp, origin)
