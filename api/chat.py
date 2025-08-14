@@ -83,7 +83,8 @@ def chat():
             text = str(s or "")
         if not text:
             text = (
-                "I'm sorry you must have mistaken me for someone who cares... womp womp ;(\nNow ask questions about me or go somewhere else you tricky wolf."
+                "I'm sorry you must have mistaken me for someone who cares... womp womp ;(\n"
+                "Now ask questions about me or go somewhere else you tricky wolf."
             )
         resp = jsonify({"reply": text, "decision": "CRISIS"})
         return with_cors(resp, origin)
