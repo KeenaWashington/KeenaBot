@@ -2,6 +2,7 @@
 import os, json, base64
 from flask import Flask, request, jsonify
 from openai import OpenAI
+from cryptography.fernet import Fernet
 
 import sys
 CURRENT_DIR = os.path.dirname(__file__)
@@ -19,7 +20,17 @@ from guardrails import system_rules_text, build_profile_terms, judge_response
 from context_selector import select_context
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-ABOUT_ME = json.loads(base64.b64decode(os.environ["ABOUT_ME_JSON_BASE64"]).decode("utf-8"))
+# Support encrypted or plaintext profile JSON from env
+enc = os.getenv("ABOUT_ME_JSON_ENC")
+if enc:
+    # Encrypted path: ABOUT_ME_JSON_ENC is base64 of Fernet-encrypted bytes
+    key = os.environ["PROFILE_FERNET_KEY"].encode()
+    f = Fernet(key)
+    ciphertext = base64.b64decode(enc.encode())
+    ABOUT_ME = json.loads(f.decrypt(ciphertext).decode("utf-8"))
+else:
+    # Plaintext path: ABOUT_ME_JSON_BASE64 is base64 of the raw JSON
+    ABOUT_ME = json.loads(base64.b64decode(os.environ["ABOUT_ME_JSON_BASE64"]).decode("utf-8"))
 
 CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
