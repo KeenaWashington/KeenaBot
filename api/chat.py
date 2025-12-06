@@ -47,13 +47,6 @@ app = Flask(__name__)
 
 ALLOWED = {o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()}
 
-CRISIS_RE = re.compile(
-    r"(?i)\b("
-    r"kill myself|suicide|self[-\s]?harm|end my life|want to die|die|murder|"
-    r"going to kill myself|hurt myself|i want to hurt myself|unalive|take my life"
-    r")\b"
-)
-
 def with_cors(resp, origin: str):
     # Only set CORS headers if the request Origin is in the allowed list
     if origin in ALLOWED:
@@ -74,20 +67,6 @@ def chat():
         resp = jsonify({"error": "message required"})
         return with_cors(resp, origin), 400
 
-    # Crisis short-circuit (no LLM call)
-    if CRISIS_RE.search(msg):
-        s = ABOUT_ME.get("suicide")
-        if isinstance(s, dict):
-            text = s.get("message") or s.get("text") or ""
-        else:
-            text = str(s or "")
-        if not text:
-            text = (
-                "I'm sorry you must have mistaken me for someone who cares... womp womp ;(\n"
-                "Now ask questions about me or go somewhere else you tricky wolf."
-            )
-        resp = jsonify({"reply": text, "decision": "CRISIS"})
-        return with_cors(resp, origin)
 
     history = data.get("history") or []
     validated_history = []
