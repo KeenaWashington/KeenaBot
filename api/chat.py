@@ -95,8 +95,8 @@ def chat():
 
     try:
         r = client.chat.completions.create(
-            model="gpt-5.1-mini",
-            #reasoning_effort="low",
+            model="gpt-5.1",
+            reasoning_effort="low",
             messages=messages,
         )
         draft = r.choices[0].message.content
