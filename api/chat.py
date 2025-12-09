@@ -108,6 +108,3 @@ def chat():
 
     resp = jsonify({"reply": final, "decision": decision})
     return with_cors(resp, origin)
-
-if __name__ == "__main__":
-    print("Hello! I am an AI chatbot designed to respond as Keena would with a good amount of information about anything you could want to know. Feel free to ask anything about me, my life, or my work experience.")
