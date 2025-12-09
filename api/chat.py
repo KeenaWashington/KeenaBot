@@ -92,7 +92,7 @@ def chat():
     try:
         r = client.chat.completions.create(
             model="gpt-5-nano",
-            #reasoning_effort="low",
+            reasoning_effort="low",
             messages=messages,
         )
         draft = r.choices[0].message.content
