@@ -91,7 +91,7 @@ def chat():
 
     try:
         r = client.chat.completions.create(
-            model="gpt-5.1-mini",
+            model="gpt-5-nano",
             #reasoning_effort="low",
             messages=messages,
         )
