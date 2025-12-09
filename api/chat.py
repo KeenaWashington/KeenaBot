@@ -37,7 +37,7 @@ CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
 
 
-MODEL = os.getenv("MODEL", "gpt-5")
+MODEL = os.getenv("MODEL", "gpt-5.1-mini")
 REASONING = os.getenv("REASONING_EFFORT", "low")
 
 PROFILE_TERMS = build_profile_terms(ABOUT_ME)
@@ -95,7 +95,7 @@ def chat():
 
     try:
         r = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-5.1-mini",
             reasoning_effort="low",
             messages=messages,
         )
