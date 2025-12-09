@@ -37,7 +37,7 @@ CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
 
 
-MODEL = os.getenv("MODEL", "gpt-5-mini")
+MODEL = os.getenv("MODEL", "gpt-5")
 REASONING = os.getenv("REASONING_EFFORT", "low")
 
 PROFILE_TERMS = build_profile_terms(ABOUT_ME)
