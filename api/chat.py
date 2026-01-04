@@ -31,7 +31,14 @@ if enc:
     ABOUT_ME = json.loads(f.decrypt(ciphertext).decode("utf-8"))
 else:
     # Plaintext path: ABOUT_ME_JSON_BASE64 is base64 of the raw JSON
-    ABOUT_ME = json.loads(base64.b64decode(os.environ["ABOUT_ME_JSON_BASE64"]).decode("utf-8"))
+    def load_about_me():
+    raw = os.environ.get("ABOUT_ME_JSON_BASE64", "")
+    try:
+        decoded = base64.b64decode(raw.encode("utf-8")).decode("utf-8")
+        return json.loads(decoded)
+    except Exception as e:
+        # Don’t leak secrets; just return the error type + short message
+        return {"__load_error__": f"{type(e).__name__}: {str(e)[:120]}"}
 
 CAPABILITIES = set(ABOUT_ME.get("capabilities", []))
 POLICY = ABOUT_ME.get("policy", {})
@@ -54,9 +61,15 @@ def with_cors(resp, origin: str):
 
 @app.route("/api/chat", methods=["POST", "OPTIONS"])
 def chat():
-    origin = request.headers.get("Origin", "")
-    if request.method == "OPTIONS":  # CORS preflight
-        return with_cors(jsonify({}), origin), 204
+    ABOUT_ME = load_about_me()
+    if "__load_error__" in ABOUT_ME:
+        resp = jsonify({"error": ABOUT_ME["__load_error__"]})
+        return with_cors(resp, origin), 500
+        origin = request.headers.get("Origin", "")
+    if request.method == "OPTIONS":
+        resp = jsonify({})
+        resp = with_cors(resp, origin)
+        return resp, 204
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
     if not msg:
